@@ -1,10 +1,10 @@
 """
-Telegram Hybrid GCast Bot v3.1 — Fixed Error 406 UPDATE_APP_TO_LOGIN
-====================================================================
+Telegram Hybrid GCast Bot v3.2 — Multi-Userbot System (Fixed Build & 406 Error)
+=============================================================================
 """
 
 import telebot
-from hydrogram import Client  # Menggunakan Hydrogram untuk fix error 406
+from pyrogram import Client  # Kembali menggunakan Pyrogram versi update
 import json
 import os
 import asyncio
@@ -101,7 +101,7 @@ def handle_login_flow(message):
         t.start()
 
 
-# ── Hydrogram Core Asynchronous Auth ───────────────────────────────────
+# ── Pyrogram Core Asynchronous Auth ───────────────────────────────────
 
 def run_async_login(loop, uid, state):
     loop.run_until_complete(async_auth_telegram(uid, state))
@@ -110,7 +110,7 @@ async def async_auth_telegram(uid, state):
     session_name = f"sessions/user_{uid}"
     os.makedirs("sessions", exist_ok=True)
     
-    # Menggunakan identitas modern PC Windows untuk bypass pengecekan bot/aplikasi usang
+    # Konfigurasi aplikasi modern untuk bypass verifikasi server
     client = Client(
         session_name, 
         api_id=state["api_id"], 
@@ -208,7 +208,7 @@ async def async_userbot_broadcast(uid, user_data, pesan):
     session_name = f"sessions/user_{uid}"
     client = Client(session_name, api_id=user_data["api_id"], api_hash=user_data["api_hash"])
     
-    # Isi daftar username grup publik target siaran di bawah ini
+    # Isi daftar grup publik target siaran di bawah ini
     target_groups = ["grup_diskusi_publik_1", "pasar_indonesia_grup"] 
     
     try:
@@ -220,7 +220,7 @@ async def async_userbot_broadcast(uid, user_data, pesan):
                 chat = await client.join_chat(username)
                 await client.send_message(chat.id, pesan)
                 sukses += 1
-                await asyncio.sleep(7) # Jeda waktu aman 7 detik anti-banned
+                await asyncio.sleep(7)  # Jeda waktu aman anti-banned
             except Exception:
                 pass
                 
@@ -231,5 +231,5 @@ async def async_userbot_broadcast(uid, user_data, pesan):
         await client.disconnect()
 
 if __name__ == "__main__":
-    print("🤖 Bot Utama & System Hybrid Aktif (Fix 406)...")
+    print("🤖 Bot Utama & System Hybrid Aktif (Pyrogram Patched)...")
     bot.infinity_polling()

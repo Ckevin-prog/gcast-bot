@@ -1,10 +1,10 @@
 """
-Telegram Hybrid GCast Bot v3.0 — Multi-Userbot & Owner Notification System
-========================================================================
+Telegram Hybrid GCast Bot v3.1 — Fixed Error 406 UPDATE_APP_TO_LOGIN
+====================================================================
 """
 
 import telebot
-from pyrogram import Client
+from hydrogram import Client  # Menggunakan Hydrogram untuk fix error 406
 import json
 import os
 import asyncio
@@ -16,7 +16,7 @@ from datetime import datetime
 # ──────────────────────────────────────────────────────────────────────
 BOT_TOKEN = "8665011485:AAEbubrLFGrG6ErO06FHhXPKwRtGA1lm7cM"   # Token Bot Utama Anda
 OWNER_ID = 7240245056                                          # ID Telegram Anda (Owner)
-DB_FILE = "userbot_db.json"
+DB_FILE = "userbot_db.json"                                    # Database penyimpanan multi-user
 # ──────────────────────────────────────────────────────────────────────
 
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
@@ -45,7 +45,7 @@ def cmd_start(message):
     username = message.from_user.username or "Tanpa Username"
     first_name = message.from_user.first_name
 
-    # Kirim Notifikasi ke Owner jika ada user baru yang memulai bot
+    # Notifikasi ke Owner jika ada user baru mulai bot
     if uid != str(OWNER_ID):
         notif_text = (f"🔔 <b>Pengguna Baru Memulai Bot!</b>\n\n"
                       f"👤 Nama: {first_name}\n"
@@ -61,7 +61,7 @@ def cmd_start(message):
                     f"Ini adalah Bot GCast Massal menggunakan akun Telegram Anda sendiri.\n"
                     f"Aman, mandiri, dan tidak perlu mengundang bot ke dalam grup.\n\n"
                     f"📋 <b>Langkah Pendaftaran:</b>\n"
-                    f"1. Ambil API ID & API HASH Anda di: https://my.telegram.orgn"
+                    f"1. Ambil API ID & API HASH Anda di: https://my.telegram.org\n"
                     f"2. Kirim perintah /register untuk memulai setup.")
     bot.reply_to(message, welcome_text)
 
@@ -96,23 +96,29 @@ def handle_login_flow(message):
         state["phone"] = phone
         bot.reply_to(message, "⏳ Sedang mengirim kode OTP dari Telegram, mohon tunggu...")
         
-        # Jalankan loop asinkronus Pyrogram di thread terpisah untuk verifikasi OTP
         loop = asyncio.new_event_loop()
         t = threading.Thread(target=run_async_login, args=(loop, uid, state))
         t.start()
 
 
-# ── Pyrogram Core Asynchronous Auth ───────────────────────────────────
+# ── Hydrogram Core Asynchronous Auth ───────────────────────────────────
 
 def run_async_login(loop, uid, state):
     loop.run_until_complete(async_auth_telegram(uid, state))
 
 async def async_auth_telegram(uid, state):
-    # Buat nama session file unik berdasarkan ID User
     session_name = f"sessions/user_{uid}"
     os.makedirs("sessions", exist_ok=True)
     
-    client = Client(session_name, api_id=state["api_id"], api_hash=state["api_hash"], phone_number=state["phone"])
+    # Menggunakan identitas modern PC Windows untuk bypass pengecekan bot/aplikasi usang
+    client = Client(
+        session_name, 
+        api_id=state["api_id"], 
+        api_hash=state["api_hash"], 
+        phone_number=state["phone"],
+        device_model="PC 64bit",
+        system_version="Windows 11"
+    )
     state["client"] = client
 
     try:
@@ -131,7 +137,7 @@ async def async_auth_telegram(uid, state):
 def handle_otp_input(message):
     uid = message.from_user.id
     state = user_login_state[uid]
-    otp_code = message.text.strip().replace(" ", "") # bersihkan spasi jika ada
+    otp_code = message.text.strip().replace(" ", "")
 
     bot.reply_to(message, "⚡ Memverifikasi kode OTP Anda...")
     
@@ -148,7 +154,6 @@ async def async_verify_otp(uid, state, otp_code):
         await client.sign_in(state["phone"], state["code_hash"].phone_code_hash, otp_code)
         me = await client.get_me()
         
-        # Simpan konfigurasi sukses ke database JSON
         db = load_db()
         db["users"][str(uid)] = {
             "api_id": state["api_id"],
@@ -159,7 +164,7 @@ async def async_verify_otp(uid, state, otp_code):
         }
         save_db(db)
         
-        bot.send_message(uid, f"🎉 <b>Pendaftaran Berhasil!</b>\n\nAkun Anda: <b>{me.first_name}</b> (@{me.username}) telah aktif sebagai Userbot.\nSekarang Anda bisa mulai menggunakan perintah /gcastmassal untuk menyebarkan pesan otomatis.")
+        bot.send_message(uid, f"🎉 <b>Pendaftaran Berhasil!</b>\n\nAkun Anda: <b>{me.first_name}</b> (@{me.username}) telah aktif sebagai Userbot.\nSekarang Anda bisa mulai menggunakan perintah /gcastmassal.")
         
         # Notifikasi sukses login ke Owner
         owner_notif = (f"🚀 <b>Userbot Baru Aktif!</b>\n\n"
@@ -174,7 +179,7 @@ async def async_verify_otp(uid, state, otp_code):
         await client.disconnect()
         user_login_state.pop(uid, None)
 
-# ── Fitur Broadcast Massal Otomatis (Akses Mandiri) ───────────────────
+# ── Fitur Broadcast Massal Otomatis ───────────────────────────────────
 
 @bot.message_handler(commands=["gcastmassal"])
 def cmd_gcast_massal(message):
@@ -191,7 +196,6 @@ def cmd_gcast_massal(message):
     pesan_iklan = parts[1].strip()
     bot.reply_to(message, "📡 Menghubungkan ke sistem Userbot Anda... Proses broadcast akan segera berjalan di background.")
     
-    # Jalankan proses broadcast userbot di thread terpisah agar bot utama tidak hang
     user_data = db["users"][uid]
     loop = asyncio.new_event_loop()
     t = threading.Thread(target=run_async_broadcast, args=(loop, uid, user_data, pesan_iklan))
@@ -204,8 +208,8 @@ async def async_userbot_broadcast(uid, user_data, pesan):
     session_name = f"sessions/user_{uid}"
     client = Client(session_name, api_id=user_data["api_id"], api_hash=user_data["api_hash"])
     
-    # Contoh target username grup publik tujuan (Bisa dikembangkan menggunakan database grup dinamis)
-    target_groups = ["grup_diskusi_publik_1", "pasar_indonesia_grup", "komunitas_crypto_id"] 
+    # Isi daftar username grup publik target siaran di bawah ini
+    target_groups = ["grup_diskusi_publik_1", "pasar_indonesia_grup"] 
     
     try:
         await client.connect()
@@ -213,11 +217,10 @@ async def async_userbot_broadcast(uid, user_data, pesan):
         
         for username in target_groups:
             try:
-                # Cari dan join otomatis tanpa harus diundang
                 chat = await client.join_chat(username)
                 await client.send_message(chat.id, pesan)
                 sukses += 1
-                await asyncio.sleep(7) # Jeda waktu aman anti-banned
+                await asyncio.sleep(7) # Jeda waktu aman 7 detik anti-banned
             except Exception:
                 pass
                 
@@ -228,5 +231,5 @@ async def async_userbot_broadcast(uid, user_data, pesan):
         await client.disconnect()
 
 if __name__ == "__main__":
-    print("🤖 Bot Utama & System Hybrid Aktif...")
+    print("🤖 Bot Utama & System Hybrid Aktif (Fix 406)...")
     bot.infinity_polling()

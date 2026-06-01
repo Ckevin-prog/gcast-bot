@@ -1,1 +1,3 @@
 pyTelegramBotAPI==4.26.0
+pyrogram==2.0.10
+tgcrypto==1.2.5
